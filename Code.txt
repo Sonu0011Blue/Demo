@@ -1,0 +1,130 @@
+
+% 8 Puzzle Problem using Greedy Best First Search
+
+% Goal State
+goal([1,2,3,4,5,6,7,8,0]).
+
+% Manhattan Distance Heuristic
+heuristic(State, H) :-
+    heuristic_count(State, 0, H).
+
+heuristic_count([], H, H).
+
+heuristic_count([0|T], Acc, H) :-
+    heuristic_count(T, Acc, H).
+
+heuristic_count([X|T], Acc, H) :-
+    X =\= 0,
+    I is X - 1,
+    Row1 is I // 3,
+    Col1 is I mod 3,
+    nth0_position(StateIndex, [X|T], X),
+    Row2 is StateIndex // 3,
+    Col2 is StateIndex mod 3,
+    D is abs(Row1-Row2) + abs(Col1-Col2),
+    Acc1 is Acc + D,
+    heuristic_count(T, Acc1, H).
+
+nth0_position(0, [X|_], X).
+nth0_position(I, [_|T], X) :-
+    nth0_position(J, T, X),
+    I is J + 1.
+
+% Correct Manhattan heuristic using tile positions
+manhattan(State, H) :-
+    manhattan(State, 0, 0, H).
+
+manhattan([], _, H, H).
+manhattan([0|T], I, Acc, H) :-
+    I1 is I + 1,
+    manhattan(T, I1, Acc, H).
+manhattan([X|T], I, Acc, H) :-
+    Goal is X - 1,
+    R1 is I // 3,
+    C1 is I mod 3,
+    R2 is Goal // 3,
+    C2 is Goal mod 3,
+    D is abs(R1-R2) + abs(C1-C2),
+    Acc1 is Acc + D,
+    I1 is I + 1,
+    manhattan(T, I1, Acc1, H).
+
+% Generate valid moves
+move(State, Next) :-
+    nth0(Zero, State, 0),
+    (NextPos is Zero - 3;
+     NextPos is Zero + 3;
+     (Zero mod 3 =\= 0, NextPos is Zero - 1);
+     (Zero mod 3 =\= 2, NextPos is Zero + 1)),
+    NextPos >= 0,
+    NextPos < 9,
+    swap(State, Zero, NextPos, Next).
+
+% Swap elements
+swap(List, I, J, Result) :-
+    nth0(I, List, A),
+    nth0(J, List, B),
+    replace(List, I, B, Temp),
+    replace(Temp, J, A, Result).
+
+replace([_|T], 0, X, [X|T]).
+replace([H|T], I, X, [H|R]) :-
+    I > 0,
+    I1 is I - 1,
+    replace(T, I1, X, R).
+
+% Insert nodes in heuristic order
+insert_node(Node, [], [Node]).
+insert_node(node(H,P), [node(H1,P1)|T],
+            [node(H,P),node(H1,P1)|T]) :-
+    H =< H1, !.
+insert_node(Node, [H|T], [H|R]) :-
+    insert_node(Node, T, R).
+
+% Sort open list
+sort_open([], []).
+sort_open([H|T], Sorted) :-
+    sort_open(T, S1),
+    insert_node(H, S1, Sorted).
+
+% Best First Search
+best_first(Start, Path) :-
+    manhattan(Start, H),
+    search([node(H,[Start])], [], RevPath),
+    reverse(RevPath, Path).
+
+% Goal condition
+search([node(_, [State|Path])|_], _, [State|Path]) :-
+    goal(State), !.
+
+% Expand nodes
+search([node(_, [State|Path])|Rest], Visited, Solution) :-
+    findall(node(H,[Next,State|Path]),
+        (move(State,Next),
+         \+ member(Next,Visited),
+         \+ member(Next,[State|Path]),
+         manhattan(Next,H)),
+        Children),
+    append(Rest,Children,Open),
+    sort_open(Open,Sorted),
+    search(Sorted,[State|Visited],Solution).
+
+% Solve puzzle
+solve(Start) :-
+    (best_first(Start,Path)
+    -> write('Solution Path:'), nl,
+       print_path(Path)
+    ;  write('No solution found.'), nl).
+
+% Print path
+print_path([]).
+print_path([H|T]) :-
+    write(H), nl,
+    print_path(T).
+
+% Main execution
+main :-
+    Start = [1,2,3,4,0,6,7,5,8],
+    solve(Start).
+
+:- initialization(main).
